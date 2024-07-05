@@ -13,17 +13,13 @@ import textract
 from urllib.parse import quote_plus
 from urllib.parse import urlparse
 import urllib
-import functions_framework
 import json
 import shutil
-import vertexai
-from vertexai.preview.generative_models import GenerativeModel, Part
 import re
-from google.cloud import firestore
 import subprocess
 import streamlit as st
-from google.cloud import aiplatform
-from google.oauth2 import service_account
+import json
+import google.generativeai as genai
 
 
 def find_urls(query, cx, num_results=3):
@@ -164,7 +160,8 @@ def process_file(file):
         elif file_name.suffix == ".docx" or file_name.suffix == ".csv" or file_name.suffix == ".epub" or file_name.suffix == ".json" or file_name.suffix == ".html" or file_name.suffix == ".odt" or file_name.suffix == ".pptx" or file_name.suffix == ".txt" or file_name.suffix == ".rtf":
             result_str: str = textract.process(file)
             return result_str.decode('utf_8', errors="ignore")
-    except:
+    except Exception as e:
+        print(f"An error occured {e}")
         pass
 
 
@@ -201,7 +198,8 @@ def process_file_questions(urls, question, temp_dir="temp"):
             summary = pdf_answerer(question, filepath, st.secrets["project"])
             links.append(url)
             summaries.append(summary)
-        except:
+        except Exception as e:
+            print(f"An error occured {e}")
             print(f"Error downloading {url}")
     shutil.rmtree(path, ignore_errors=True)
     return links, summaries
@@ -281,28 +279,25 @@ def add_suffix_to_filepath(filepath, suffix="-new"):
     return os.path.join('temp', new_filename)
 
 
-def pdf_answerer(question: str, pdf_location: str, project_id: str) -> list[str]:
+def pdf_answerer(question: str, pdf_location: str, api_key: str) -> str:
     """
     Example:
-        >>> project_id = st.secrets["project"]
+        >>> api_key = st.secrets["api_key"]
         >>> pdf_location = "data/random_text.pdf"
-        >>> response = pdf_answerer("How many times is random text repeated?", pdf_location, project_id)
+        >>> response = pdf_answerer("How many times is random text repeated?", pdf_location, api_key)
         >>> len(response) > 0
         True
     """
-    vertexai.init(project=project_id, location="us-central1")
     try:
-        file_bytes = pathlib.Path(pdf_location).read_bytes()
-        pdf_file = Part.from_data(file_bytes, mime_type="application/pdf")
-        generative_multimodal_model = GenerativeModel("gemini-1.5-flash-001")
-        page_response = generative_multimodal_model.generate_content([
-            pdf_file, 
-            question,
-            "Be thorough. Include all relevant context of the question, the document, and anything else in the answer. Use numbers and statistics."
-        ])
-        return page_response.text
-    except:
-        return ""
+        text = process_file(pdf_location)
+        model = genai.GenerativeModel("gemini-pro")
+        response = model.generate_content(
+            f"{text}\n\n{question}\nBe thorough. Include all relevant context of the question, the document, and anything else in the answer. Use numbers and statistics."
+        )
+        return response.text
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return "Working to fix this bug."
 
 
 def runner(topic, query, question):
@@ -321,26 +316,7 @@ def runner(topic, query, question):
 
 
 def main():
-    credentials_dict = {
-        "type": st.secrets["type"],
-        "project_id": st.secrets["project_id"],
-        "private_key_id": st.secrets["private_key_id"],
-        "private_key": st.secrets["private_key"],
-        "client_email": st.secrets["client_email"],
-        "client_id": st.secrets["client_id"],
-        "auth_uri": st.secrets["auth_uri"],
-        "token_uri": st.secrets["token_uri"],
-        "auth_provider_x509_cert_url": st.secrets["auth_provider_x509_cert_url"],
-        "client_x509_cert_url": st.secrets["client_x509_cert_url"],
-        "universe_domain": st.secrets["universe_domain"],
-    }
-    my_credentials = service_account.Credentials.from_service_account_info(credentials_dict)
-    aiplatform.init(
-        project=st.secrets["project"],
-        location='us-central1',
-        credentials=my_credentials,
-    )
-
+    genai.configure(api_key=st.secrets['access'])
     st.set_page_config(page_title="Voter Turnout Query", page_icon="🗳️")
 
     st.sidebar.title('Navigation')

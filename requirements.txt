@@ -1,9 +1,5 @@
 streamlit==1.36.0
-vertexai==1.49.0
 pypdfium2==4.30.0
 textract==1.6.5
-fake-useragent==1.5.1
 requests==2.32.3
-functions-framework==3.7.0
-flask==3.0.3
-google-cloud-firestore==2.16.0
+google-generativeai==0.7.1
