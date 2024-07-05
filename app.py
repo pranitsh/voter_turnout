@@ -22,6 +22,8 @@ import re
 from google.cloud import firestore
 import subprocess
 import streamlit as st
+from google.cloud import aiplatform
+from google.oauth2 import service_account
 
 
 def find_urls(query, cx, num_results=3):
@@ -319,6 +321,26 @@ def runner(topic, query, question):
 
 
 def main():
+    credentials_dict = {
+        "type": st.secrets["type"],
+        "project_id": st.secrets["project_id"],
+        "private_key_id": st.secrets["private_key_id"],
+        "private_key": st.secrets["private_key"],
+        "client_email": st.secrets["client_email"],
+        "client_id": st.secrets["client_id"],
+        "auth_uri": st.secrets["auth_uri"],
+        "token_uri": st.secrets["token_uri"],
+        "auth_provider_x509_cert_url": st.secrets["auth_provider_x509_cert_url"],
+        "client_x509_cert_url": st.secrets["client_x509_cert_url"],
+        "universe_domain": st.secrets["universe_domain"],
+    }
+    my_credentials = service_account.Credentials.from_service_account_info(credentials_dict)
+    aiplatform.init(
+        project=st.secrets["project"],
+        location='us-central1',
+        credentials=my_credentials,
+    )
+
     st.set_page_config(page_title="Voter Turnout Query", page_icon="🗳️")
 
     st.sidebar.title('Navigation')
